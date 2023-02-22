@@ -38,12 +38,29 @@ function createDom(fiber) {
 
 function render(element, container) {
   // fiber 数据结构
-  nextUnitOfWork = {
+  wipRoot = {
     dom: container,
     props: {
       children: [element],
     },
   }
+  nextUnitOfWork = wipRoot
+}
+
+function commitRoot() {
+  console.log('commitRoot')
+  commitWork(wipRoot.child)
+  wipRoot = null
+}
+
+function commitWork(fiber) {
+  if (!fiber) {
+    return
+  }
+  const domParent = fiber.parent.dom
+  domParent.appendChild(fiber.dom)
+  commitWork(fiber.child)
+  commitWork(fiber.sibling)
 }
 
 /**
@@ -54,6 +71,7 @@ function render(element, container) {
  * 5. 一直返回到 root，则渲染完成
  */
 let nextUnitOfWork = null
+let wipRoot = null
 
 function workLoop(deadline) {
   let shouldYield = false
@@ -62,6 +80,10 @@ function workLoop(deadline) {
       nextUnitOfWork
     )
     shouldYield = deadline.timeRemaining() < 1
+  }
+  if (!nextUnitOfWork && wipRoot) {
+    // 所有节点渲染后再commit 一次更新到dom上，防止浏览器卡顿只出现一半UI
+    commitRoot()
   }
   requestIdleCallback(workLoop)
 }
@@ -74,9 +96,6 @@ function performUnitOfWork(fiber) {
     fiber.dom = createDom(fiber)
   }
 
-  if (fiber.parent) {
-    fiber.parent.dom.appendChild(fiber.dom)
-  }
   console.log(fiber);
   // add dom node ... end
 
