@@ -1,7 +1,7 @@
 {
   "name": "mini-react",
   "version": "1.0.0",
-  "description": "",
+  "description": "mini react",
   "keywords": [],
   "main": "src/index.js",
   "dependencies": {
