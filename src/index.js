@@ -20,21 +20,39 @@ function createTextElement(text) {
   };
 }
 
-function render(element, container) {
+function createDom(fiber) {
   const dom =
-    element.type == "TEXT_ELEMENT"
+    fiber.type == "TEXT_ELEMENT"
       ? document.createTextNode("")
-      : document.createElement(element.type);
-  const isProperty = key => key !== "children";
-  Object.keys(element.props)
+      : document.createElement(fiber.type)
+
+  const isProperty = key => key !== "children"
+  Object.keys(fiber.props)
     .filter(isProperty)
     .forEach(name => {
-      dom[name] = element.props[name];
-    });
-  element.props.children.forEach(child => render(child, dom));
-  container.appendChild(dom);
+      dom[name] = fiber.props[name]
+    })
+
+  return dom
 }
 
+function render(element, container) {
+  // fiber 数据结构
+  nextUnitOfWork = {
+    dom: container,
+    props: {
+      children: [element],
+    },
+  }
+}
+
+/**
+ * 1. 渲染 root
+ * 2. 渲染 child
+ * 3. 没有 child，渲染 sibling
+ * 4. 没有 child，也没有 sibling，则找 parent 的 sibling
+ * 5. 一直返回到 root，则渲染完成
+ */
 let nextUnitOfWork = null
 
 function workLoop(deadline) {
@@ -50,8 +68,55 @@ function workLoop(deadline) {
 
 requestIdleCallback(workLoop)
 
-function performUnitOfWork(nextUnitOfWork) {
-  // TODO
+function performUnitOfWork(fiber) {
+  // add dom node ... start
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber)
+  }
+
+  if (fiber.parent) {
+    fiber.parent.dom.appendChild(fiber.dom)
+  }
+  console.log(fiber);
+  // add dom node ... end
+
+  // create new fibers ... start
+  const elements = fiber.props.children
+  let index = 0
+  let prevSibling = null
+
+  while (index < elements.length) {
+    const element = elements[index]
+
+    const newFiber = {
+      type: element.type,
+      props: element.props,
+      parent: fiber,
+      dom: null,
+    }
+    if (index === 0) {
+      fiber.child = newFiber
+    } else {
+      prevSibling.sibling = newFiber
+    }
+
+    prevSibling = newFiber
+    index++
+  }
+  // create new fibers ... end
+
+  // return next unit of work start
+  if (fiber.child) {
+    return fiber.child
+  }
+  let nextFiber = fiber
+  while (nextFiber) {
+    if (nextFiber.sibling) {
+      return nextFiber.sibling
+    }
+    nextFiber = nextFiber.parent
+  }
+  // return next unit of work end
 }
 
 const Didact = {
